@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>パズルゲーム</title>
+
+
+  <meta property="og:type" content="website" />
+  <link rel="canonical" href="#">
+  <link rel="stylesheet" type="text/css" href="style.css" />
+
+
+  <!-- ステージの位置 -->
+  <style type="text/css">
+
+  </style>
+  <script type="text/javascript" src="style.css"></script>
+
+  <script>
+    var canvas, g;
+    var board; // ゲームボード（背景）
+    var puyo; // 操作中ぷよ
+    var WIDTH = 8; // ゲームボードの幅
+    var HEIGHT = 14; // ゲームボードの高さ
+    var SIZE = 24; // 1マスの描画サイズ
+    var frameCount = 0;
+
+    onload = function () {
+      // 描画コンテキストの取得
+      canvas = document.getElementById("gamecanvas");
+      g = canvas.getContext("2d");
+      // 初期化
+      init();
+      // 入力処理の指定
+      document.onkeydown = keydown;
+      document.onkeyup = keyup;
+      // ゲームループの設定 60FPS
+      setInterval("gameloop()", 16);
+    };
+
+    function init() {
+      board = new Array(WIDTH * HEIGHT);
+      puyo = new Puyo();
+      for (var i = 0; i < HEIGHT; i++) {
+        for (var j = 0; j < WIDTH; j++) {
+          if (j == 0 || j == WIDTH - 1 || i == HEIGHT - 1) {
+            board[boardPos(j, i)] = 5;
+          } else {
+            board[boardPos(j, i)] = 0;
+          }
+        }
+      }
+    }
+
+    // キー入力は変数に保存しておき、メインループ内で参照する
+    var key = -1;
+
+    function keydown(e) {
+      if (e.key == "w") {
+        key = 3;
+      } else if (e.key == "d") {
+        key = 0;
+      } else if (e.key == "s") {
+        key = 1;
+      } else if (e.key == "a") {
+        key = 2;
+      }
+    }
+
+    function keyup(e) {
+      key = -1;
+    }
+
+    function gameloop() {
+      update();
+      draw();
+    }
+
+    function update() {
+      // 毎フレームだと速いので5フレームに一度処理する
+      if (frameCount % 5 == 0) {
+        // 30フレームで自動落下、または下方向キーを入力した場合落下
+        if (frameCount % 60 == 0 || key == 1) {
+          if (!hitCheck(1)) {
+            // 接地してなければ移動
+            puyo.pos.y++;
+          } else {
+            // 接地したら操作中ぷよを背景に設定する
+            board[boardPos(puyo.pos.x, puyo.pos.y)] = puyo.type1;
+            var p = puyo.pos.getSum(directionTable[puyo.dir]);
+            board[boardPos(p.x, p.y)] = puyo.type2;
+            // 新しいぷよを生成する
+            puyo = new Puyo();
+            if (hitCheck(1)) {
+              //生成した瞬間に接地したらゲームオーバー
+            }
+          }
+        }
+
+        if (key == 0 || key == 2) {
+          // 左右キーを入力した場合左右移動
+          if (!hitCheck(key)) {
+            puyo.pos = puyo.pos.getSum(directionTable[key]);
+          }
+        } else if (key == 3) {
+          // 回転
+          var nextDir = (puyo.dir + 1) % 4;
+          var nextPos = puyo.pos.getSum(directionTable[nextDir]);
+          if (board[boardPos(nextPos.x, nextPos.y)] == 0) {
+            // 回転によるぷよの移動先が空いていれば回転
+            puyo.dir = nextDir;
+          }
+        }
+
+        // ちぎれたぷよの落下
+        var drop = false;
+        for (var i = HEIGHT - 1; i >= 0; i--) {
+          for (var j = 1; j < WIDTH - 1; j++) {
+            if (board[boardPos(j, i)] > 0 && board[boardPos(j, i + 1)] == 0) {
+              // ぷよの下のマスが空いていれば落下させる
+              board[boardPos(j, i + 1)] = board[boardPos(j, i)];
+              board[boardPos(j, i)] = 0;
+              drop = true;
+            }
+          }
+        }
+
+        // ちぎれたぷよの落下が完了していればぷよ消去チェック
+        if (!drop) {
+          deleateCheck();
+        }
+      }
+
+      frameCount++;
+    }
+
+    // カラーテーブル
+    var colorTable = [
+      "#000000", // 背景
+      "#ff0000", // ぷよ１
+      "#00ff00", // ぷよ２
+      "#0000ff", // ぷよ３
+      "#ffff00", // ぷよ４
+      "#888888", // 壁  
+    ];
+
+    function draw() {
+      // 背景の描画
+      g.fillStyle = colorTable[0];
+      g.fillRect(0, 0, SIZE * WIDTH, SIZE * HEIGHT);
+      // ゲームボードの描画
+      for (var i = 0; i < HEIGHT; i++) {
+        for (var j = 0; j < WIDTH; j++) {
+          var target = board[boardPos(j, i)];
+          if (target != 0) {
+            g.fillStyle = colorTable[target];
+            g.fillRect(j * SIZE, i * SIZE, SIZE, SIZE);
+          }
+        }
+      }
+      // 操作中ぷよ1つ目の描画
+      g.fillStyle = colorTable[puyo.type1];
+      g.fillRect(puyo.pos.x * SIZE, puyo.pos.y * SIZE, SIZE, SIZE);
+      // 操作中ぷよ2つ目の描画
+      var puyoSecondPos = puyo.pos.getSum(directionTable[puyo.dir]);
+      g.fillStyle = colorTable[puyo.type2];
+      g.fillRect(puyoSecondPos.x * SIZE, puyoSecondPos.y * SIZE, SIZE, SIZE);
+    }
+
+    // ぷよ消去チェック
+    var delCheck = new Array(WIDTH * HEIGHT);
+    var delCheckSize = new Array(WIDTH * HEIGHT);
+
+    function deleateCheck() {
+      // 初期化
+      var ans = false;
+      var labelcount = 1;
+      for (var i = 0; i < WIDTH * HEIGHT; i++) {
+        delCheck[i] = 0;
+        delCheckSize[i] = 0;
+      }
+      // ラベリング（連結した塊ごとに番号を割り振る）
+      for (var i = 1; i < HEIGHT - 1; i++) {
+        for (var j = 1; j < WIDTH - 1; j++) {
+          var target = board[boardPos(j, i)];
+          var targetUp = board[boardPos(j, i - 1)];
+          var targetLeft = board[boardPos(j - 1, i)];
+          if (target != 0) {
+            if (target == targetUp) {
+              var label = delCheck[boardPos(j, i - 1)];
+              delCheck[boardPos(j, i)] = label;
+              if (target == targetLeft) {
+                oldLabel = delCheck[boardPos(j - 1, i)];
+                for (var k = 0; k < WIDTH * HEIGHT; k++) {
+                  if (delCheck[k] == oldLabel) delCheck[k] = label;
+                }
+              }
+            } else if (target == targetLeft) {
+              delCheck[boardPos(j, i)] = delCheck[boardPos(j - 1, i)];
+            } else {
+              delCheck[boardPos(j, i)] = labelcount++;
+            }
+          }
+        }
+      }
+      // 連結サイズチェック
+      for (var i = 0; i < WIDTH * HEIGHT; i++) {
+        delCheckSize[delCheck[i]]++;
+      }
+      for (var i = 1; i < labelcount; i++) {
+        // 4連結以上で消去
+        if (delCheckSize[i] >= 4) {
+          for (var k = 0; k < WIDTH * HEIGHT; k++) {
+            if (delCheck[k] == i) {
+              board[k] = 0;
+              ans = true;
+            }
+          }
+        }
+      }
+      return ans;
+    }
+    // 指定方向に移動させた場合に衝突するかどうかのチェック
+    function hitCheck(dir) {
+      // 1つ目のぷよ
+      var p = puyo.pos.getSum(directionTable[dir]);
+      if (board[boardPos(p.x, p.y)] > 0) return true;
+      // 2つ目のぷよ
+      p = p.getSum(directionTable[puyo.dir]);
+      if (board[boardPos(p.x, p.y)] > 0) return true;
+      return false;
+    }
+
+    // 2次元的な位置を1次元の位置にする
+    function boardPos(x, y) {
+      return y * WIDTH + x;
+    }
+
+    // 座標を表すクラス
+    class Point {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+      }
+      getSum(p) {
+        return new Point(this.x + p.x, this.y + p.y);
+      }
+    }
+
+    // 操作中ぷよ
+    class Puyo {
+      constructor() {
+        this.dir = 1;
+        // ぷよの色はランダム
+        this.type1 = 1 + Math.floor(Math.random() * 4);
+        this.type2 = 1 + Math.floor(Math.random() * 4);
+        this.pos = new Point(Math.floor(WIDTH / 2), 1);
+      }
+    }
+
+    // 右、下、左、上の方向を表す移動量
+    var directionTable = [
+      new Point(1, 0),
+      new Point(0, 1),
+      new Point(-1, 0),
+      new Point(0, -1),
+    ];
+  </script>
+</head>
+
+<body>
+  <div id="layout">
+    <div class="game_option">
+      <div class="game_space1"></div>
+      <p class="game_title"> ぷよぷよ(仮)</p>
+      <p class="game_space2"></p>
+      <div class="game_screen">
+        <canvas id="gamecanvas" width="200px" height="700"></canvas>
+      </div>
+
+      <div class="control_box">
+          <li><a class="control_sab" href="#above">↑</a></li>
+          <li><a class="control_sab" href="#under">↓</a></li>
+          <li><a class="control_sab" href="#left">←</a></li>
+          <li><a class="control_sab" href="#right">→</a></li>
+      </div>
+
+    </div>
+  </div>
+</body>
+
+</html>

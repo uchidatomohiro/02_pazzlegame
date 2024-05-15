@@ -1,0 +1,53 @@
+/* 文字の基本設定 */
+
+.game_option{
+    background-image: url(/img/bg.png);
+	background-repeat:  no-repeat;  
+    background-position:center center;                    
+	background-size:cover;
+    display: block;                               
+	width: 100%;
+    height:800px;
+}
+.game_title {
+    font-size: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    
+    height: 50px;
+    color: azure;
+}
+.game_screen{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.control_box{
+    justify-content: space-evenly;
+	width: 100%;
+	border: 0.2px solid;
+	height: 100px;
+	width: 100%;
+    background: #efefef;
+    padding: 20px 50px;
+    box-sizing: border-box;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+}
+
+
+
+#above{
+    
+}
+
+
+.game_space1{height: 30px;}
+.game_space2{min-height: 20px;}
